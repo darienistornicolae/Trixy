@@ -12,7 +12,7 @@ struct MainTabView: View {
         }
         .tag(0)
 
-      Text("Chapters View")
+      ChaptersView()
         .tabItem {
           Label("Chapters", systemImage: "book.fill")
         }

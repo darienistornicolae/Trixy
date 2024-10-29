@@ -9,6 +9,9 @@ protocol FirestoreProtocol {
   func fetch() async throws -> [T]
   func upload(_ item: T) async throws
   func uploadMultiple(_ items: [T]) async throws
+  func updateDocument(id: String, data: [String: Any]) async throws
+  func getDocument(id: String) async throws -> T
+  func createDocument(id: String, data: [String: Any]) async throws
 }
 
 // MARK: - Firestore Error
@@ -81,6 +84,38 @@ final class FirestoreManager<T: Codable>: FirestoreProtocol {
         }
       }
       try await group.waitForAll()
+    }
+  }
+
+  func updateDocument(id: String, data: [String: Any]) async throws {
+    do {
+      try await dataBase.collection(collection).document(id).updateData(data)
+    } catch {
+      throw FirestoreError.failedToUpload
+    }
+  }
+
+  func getDocument(id: String) async throws -> T {
+    do {
+      let document = try await dataBase.collection(collection).document(id).getDocument()
+      
+      guard let data = document.data(),
+            let decodedData = try? JSONSerialization.data(withJSONObject: data),
+            let item = try? JSONDecoder().decode(T.self, from: decodedData) else {
+        throw FirestoreError.invalidData
+      }
+      
+      return item
+    } catch {
+      throw FirestoreError.failedToFetch
+    }
+  }
+
+  func createDocument(id: String, data: [String: Any]) async throws {
+    do {
+      try await dataBase.collection(collection).document(id).setData(data)
+    } catch {
+      throw FirestoreError.failedToUpload
     }
   }
 }
