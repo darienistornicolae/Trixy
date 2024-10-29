@@ -2,109 +2,141 @@ import Foundation
 
 @MainActor
 final class ChaptersViewModel: ObservableObject {
-    @Published private(set) var chapters: [Chapter] = []
-    @Published private(set) var isLoading = false
-    @Published private(set) var error: String?
-    @Published private(set) var userProgress: UserProgress?
-    
-    private let firestoreManager: FirestoreManager<Chapter>
-    private let progressManager: FirestoreManager<UserProgress>
-    private let userId: String
-    
-    init(userId: String,
-         firestoreManager: FirestoreManager<Chapter> = FirestoreManager(collection: "chapters"),
-         progressManager: FirestoreManager<UserProgress> = FirestoreManager(collection: "userProgress")) {
-        self.userId = userId
-        self.firestoreManager = firestoreManager
-        self.progressManager = progressManager
+  @Published private(set) var chapters: [Chapter] = []
+  @Published private(set) var isLoading = false
+  @Published private(set) var error: String?
+  @Published private(set) var userProgress: UserProgressModel?
+
+  private let firestoreManager: FirestoreManager<Chapter>
+  private let progressManager: FirestoreManager<UserProgressModel>
+  private let userId: String
+
+  init(userId: String,
+       firestoreManager: FirestoreManager<Chapter> = FirestoreManager(collection: "chapters"),
+       progressManager: FirestoreManager<UserProgressModel> = FirestoreManager(collection: "userProgress")) {
+    self.userId = userId
+    self.firestoreManager = firestoreManager
+    self.progressManager = progressManager
+  }
+
+  func fetchChapters() async {
+    isLoading = true
+    error = nil
+
+    do {
+      let fetchedChapters = try await firestoreManager.fetch()
+      let progress = try await fetchOrCreateProgress(with: fetchedChapters)
+      userProgress = progress
+
+      var updatedChapters = fetchedChapters
+      markCompletedQuestions(in: &updatedChapters, with: progress)
+      updateQuestionStates(in: &updatedChapters)
+
+      chapters = updatedChapters
+    } catch {
+      self.error = error.localizedDescription
     }
-    
-    func fetchChapters() async {
-        isLoading = true
-        error = nil
-        
-        do {
-            // First fetch chapters
-            let fetchedChapters = try await firestoreManager.fetch()
-            
-            // Try to fetch progress, create new if doesn't exist
-            let progress: UserProgress
-            do {
-                progress = try await progressManager.getDocument(id: userId)
-            } catch {
-                // Create initial progress with first question of first chapter
-                progress = UserProgress(
-                    userId: userId,
-                    chapterId: fetchedChapters[0].id,
-                    lastQuestionId: fetchedChapters[0].questions[0].id,
-                    completedQuestions: []
-                )
-                
-                let data = try JSONEncoder().encode(progress)
-                let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
-                try await progressManager.createDocument(id: userId, data: dict)
-            }
-            
-            userProgress = progress
-            
-            // First mark completed questions
-            var updatedChapters = fetchedChapters
-            for chapterIndex in updatedChapters.indices {
-                for questionIndex in updatedChapters[chapterIndex].questions.indices {
-                    let question = updatedChapters[chapterIndex].questions[questionIndex]
-                    if progress.completedQuestions.contains(question.id) {
-                        updatedChapters[chapterIndex].questions[questionIndex].state = .completed
-                    }
-                }
-            }
-            
-            // Then update unlocked states
-            for chapterIndex in updatedChapters.indices {
-                let isFirstChapter = chapterIndex == 0
-                let previousChapterCompleted = !isFirstChapter && 
-                    updatedChapters[chapterIndex - 1].questions.allSatisfy { $0.state == .completed }
-                
-                for questionIndex in updatedChapters[chapterIndex].questions.indices {
-                    if updatedChapters[chapterIndex].questions[questionIndex].state == .completed {
-                        continue
-                    }
-                    
-                    let shouldUnlock = (isFirstChapter && questionIndex == 0) ||
-                        (questionIndex == 0 && previousChapterCompleted) ||
-                        (questionIndex > 0 && updatedChapters[chapterIndex].questions[questionIndex - 1].state == .completed)
-                    
-                    updatedChapters[chapterIndex].questions[questionIndex].state = shouldUnlock ? .unlocked : .locked
-                }
-            }
-            
-            chapters = updatedChapters
-        } catch {
-            self.error = error.localizedDescription
-        }
-        
-        isLoading = false
+    isLoading = false
+  }
+
+  func resumeLastQuestion() -> QuizNavigationData? {
+    guard let progress = userProgress,
+          let currentChapter = chapters.first(where: { $0.id == progress.chapterId }) else {
+      return nil
     }
-    
-    func resumeLastQuestion() -> QuizNavigationData? {
-        guard let progress = userProgress,
-              let currentChapter = chapters.first(where: { $0.id == progress.chapterId }) else {
-            return nil
-        }
-        
-        // Find the first unlocked question in the current chapter
-        if let nextQuestion = currentChapter.questions.first(where: { $0.state == .unlocked }) {
-            return QuizNavigationData(question: nextQuestion, chapterId: currentChapter.id)
-        }
-        
-        // If no unlocked questions in current chapter, look for the next chapter with unlocked questions
-        if let nextChapterIndex = chapters.firstIndex(where: { $0.id == currentChapter.id }).map({ $0 + 1 }),
-           nextChapterIndex < chapters.count {
-            let nextChapter = chapters[nextChapterIndex]
-            if let firstUnlockedQuestion = nextChapter.questions.first(where: { $0.state == .unlocked }) {
-                return QuizNavigationData(question: firstUnlockedQuestion, chapterId: nextChapter.id)
-            }
-        }
-        
-        return nil
+
+    if let nextQuestion = currentChapter.questions.first(where: { $0.state == .unlocked }) {
+      return QuizNavigationData(question: nextQuestion, chapterId: currentChapter.id)
     }
-} 
+
+    if let nextChapterIndex = chapters.firstIndex(where: { $0.id == currentChapter.id }).map({ $0 + 1 }),
+       nextChapterIndex < chapters.count {
+      let nextChapter = chapters[nextChapterIndex]
+      if let firstUnlockedQuestion = nextChapter.questions.first(where: { $0.state == .unlocked }) {
+        return QuizNavigationData(question: firstUnlockedQuestion, chapterId: nextChapter.id)
+      }
+    }
+    return nil
+  }
+}
+
+// MARK: Private
+private extension ChaptersViewModel {
+  func fetchOrCreateProgress(with chapters: [Chapter]) async throws -> UserProgressModel {
+    do {
+      return try await progressManager.getDocument(id: userId)
+    } catch {
+      let initialProgress = UserProgressModel(
+        userId: userId,
+        chapterId: chapters[0].id,
+        lastQuestionId: chapters[0].questions[0].id,
+        completedQuestions: []
+      )
+      
+      let data = try JSONEncoder().encode(initialProgress)
+      let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+      try await progressManager.createDocument(id: userId, data: dict)
+      
+      return initialProgress
+    }
+  }
+  
+  func markCompletedQuestions(in chapters: inout [Chapter], with progress: UserProgressModel) {
+    for chapterIndex in chapters.indices {
+      for questionIndex in chapters[chapterIndex].questions.indices {
+        let question = chapters[chapterIndex].questions[questionIndex]
+        if progress.completedQuestions.contains(question.id) {
+          chapters[chapterIndex].questions[questionIndex].state = .completed
+        }
+      }
+    }
+  }
+  
+  func updateQuestionStates(in chapters: inout [Chapter]) {
+    for chapterIndex in chapters.indices {
+      let isFirstChapter = chapterIndex == 0
+      let previousChapterCompleted = !isFirstChapter &&
+      chapters[chapterIndex - 1].questions.allSatisfy { $0.state == .completed }
+      
+      updateQuestionsInChapter(
+        at: chapterIndex,
+        in: &chapters,
+        isFirstChapter: isFirstChapter,
+        previousChapterCompleted: previousChapterCompleted
+      )
+    }
+  }
+  
+  func updateQuestionsInChapter(
+    at chapterIndex: Int,
+    in chapters: inout [Chapter],
+    isFirstChapter: Bool,
+    previousChapterCompleted: Bool
+  ) {
+    for questionIndex in chapters[chapterIndex].questions.indices {
+      if chapters[chapterIndex].questions[questionIndex].state == .completed {
+        continue
+      }
+      
+      let shouldUnlock = shouldUnlockQuestion(
+        at: questionIndex,
+        in: chapters[chapterIndex],
+        isFirstChapter: isFirstChapter,
+        previousChapterCompleted: previousChapterCompleted
+      )
+      
+      chapters[chapterIndex].questions[questionIndex].state = shouldUnlock ? .unlocked : .locked
+    }
+  }
+  
+  func shouldUnlockQuestion(
+    at index: Int,
+    in chapter: Chapter,
+    isFirstChapter: Bool,
+    previousChapterCompleted: Bool
+  ) -> Bool {
+    (isFirstChapter && index == 0) ||
+    (index == 0 && previousChapterCompleted) ||
+    (index > 0 && chapter.questions[index - 1].state == .completed)
+  }
+}

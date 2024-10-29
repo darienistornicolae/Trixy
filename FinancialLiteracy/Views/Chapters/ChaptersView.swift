@@ -3,7 +3,7 @@ import SwiftUI
 struct ChaptersView: View {
   @StateObject private var viewModel = ChaptersViewModel(userId: AuthManager.shared.currentUserId)
   @State private var expandedChapter: String?
-  
+
   var body: some View {
     NavigationStack {
       Group {
@@ -17,11 +17,11 @@ struct ChaptersView: View {
               
               if let navigationData = viewModel.resumeLastQuestion() {
                 NavigationLink(value: navigationData) {
-                  ResumeButton()
+                  resumeButton()
                 }
                 .padding(.horizontal)
               }
-              
+
               LazyVStack(spacing: 16) {
                 ForEach(viewModel.chapters) { chapter in
                   ChapterCardView(
@@ -47,17 +47,25 @@ struct ChaptersView: View {
       }
       .navigationTitle("Learning Chapters")
       .navigationDestination(for: QuizNavigationData.self) { navigationData in
-        QuizView(question: navigationData.question, chapterId: navigationData.chapterId)
+        QuizView(
+          question: navigationData.question,
+          chapterId: navigationData.chapterId
+        )
         .environmentObject(viewModel)
       }
     }
-    
     .task {
       await viewModel.fetchChapters()
     }
   }
-  
-  private func ResumeButton() -> some View {
+}
+
+#Preview {
+  ChaptersView()
+}
+
+private extension ChaptersView {
+  private func resumeButton() -> some View {
     HStack {
       Image(systemName: "play.circle.fill")
         .foregroundColor(.blue)
@@ -82,9 +90,4 @@ struct ChaptersView: View {
     .background(Color(.systemBackground))
     .clipShape(RoundedRectangle(cornerRadius: 12))
   }
-}
-
-
-#Preview {
-    ChaptersView()
 }
