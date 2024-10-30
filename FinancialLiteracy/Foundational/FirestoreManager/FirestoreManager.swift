@@ -2,7 +2,6 @@ import Foundation
 import FirebaseFirestore
 import SwiftUI
 
-// MARK: - Firestore Protocol
 protocol FirestoreProtocol {
   associatedtype T: Codable
   var collection: String { get }
@@ -14,7 +13,6 @@ protocol FirestoreProtocol {
   func createDocument(id: String, data: [String: Any]) async throws
 }
 
-// MARK: - Firestore Error
 enum FirestoreError: LocalizedError {
   case failedToFetch
   case failedToUpload
@@ -32,7 +30,6 @@ enum FirestoreError: LocalizedError {
   }
 }
 
-// MARK: - Generic Firestore Manager
 final class FirestoreManager<T: Codable>: FirestoreProtocol {
   private let dataBase = Firestore.firestore()
   let collection: String
