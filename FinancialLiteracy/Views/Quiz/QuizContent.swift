@@ -7,19 +7,25 @@ struct QuizContent: View {
 
   var body: some View {
     ScrollView {
-      VStack(spacing: 24) {
+      VStack(spacing: 32) {
+        Text(question.title)
+          .font(.title3)
+          .fontWeight(.semibold)
+          .foregroundColor(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+
         QuestionCard(question: question, viewModel: viewModel)
 
         VStack(spacing: 16) {
           ForEach(question.options.indices, id: \.self) { index in
             OptionButton(
               text: question.options[index],
-              isSelected: viewModel.selectedAnswer == index,
-              isCorrect: viewModel.showFeedback && viewModel.isCorrect && index == question.correctAnswer,
-              isWrong: viewModel.showFeedback && viewModel.selectedAnswer == index && !viewModel.isCorrect
+              state: buttonState(for: index)
             ) {
               if !viewModel.isAnswered || !viewModel.isCorrect {
-                viewModel.selectedAnswer = index
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                  viewModel.selectedAnswer = index
+                }
               }
             }
           }
@@ -33,7 +39,24 @@ struct QuizContent: View {
           NavigationActionButton(question: question, chapterId: chapterId)
         }
       }
-      .padding()
+      .padding(.horizontal)
+      .padding(.vertical, 24)
+    }
+  }
+}
+
+// MARK: Private
+private extension QuizContent {
+  private func buttonState(for index: Int) -> OptionButton.State {
+    switch (viewModel.showFeedback, index) {
+    case (true, question.correctAnswer) where viewModel.isCorrect:
+      return .correct
+    case (true, viewModel.selectedAnswer) where !viewModel.isCorrect:
+      return .wrong
+    case (_, viewModel.selectedAnswer):
+      return .selected
+    default:
+      return .default
     }
   }
 }

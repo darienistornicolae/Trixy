@@ -38,5 +38,3 @@ struct NavigationActionButton: View {
     return chaptersViewModel.chapters[currentChapterIndex + 1]
   }
 }
-
-

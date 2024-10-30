@@ -6,6 +6,7 @@ struct QuizView: View {
   @Environment(\.dismiss) private var dismiss
   @StateObject private var viewModel: QuizViewModel
   @EnvironmentObject private var chaptersViewModel: ChaptersViewModel
+  @EnvironmentObject private var navigationRouter: NavigationRouter
 
   init(question: Question, chapterId: String) {
     self.question = question
@@ -19,17 +20,20 @@ struct QuizView: View {
 
   var body: some View {
     ZStack {
+      Color(.systemBackground)
+        .ignoresSafeArea()
+      
       QuizContent(
         viewModel: viewModel,
         question: question,
         chapterId: chapterId
       )
-
+      
       if viewModel.showSnackbar {
         VStack {
           Spacer()
           Snackbar(
-            message: viewModel.isCorrect ? "Correct! Well done!" : "That's not quite right. Try again!",
+            message: viewModel.isCorrect ? "Awesome! You got it right!" : "Almost there! Try again!",
             isSuccess: viewModel.isCorrect,
             isShowing: $viewModel.showSnackbar
           )
@@ -58,7 +62,10 @@ struct QuizView: View {
     .toolbar {
       ToolbarItem(placement: .navigationBarLeading) {
         Button {
-          dismiss()
+          navigationRouter.popToRoot()
+          Task {
+            await chaptersViewModel.fetchChapters()
+          }
         } label: {
           Image(systemName: "chevron.left")
             .foregroundColor(.blue)

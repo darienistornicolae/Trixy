@@ -4,31 +4,64 @@ struct Snackbar: View {
   let message: String
   let isSuccess: Bool
   @Binding var isShowing: Bool
+  @Environment(\.colorScheme) private var colorScheme
+
+  private var backgroundColor: Color {
+    isSuccess ? Color.green : Color.red
+  }
 
   var body: some View {
     HStack(spacing: 12) {
-      Image(systemName: isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
-        .foregroundColor(isSuccess ? .green : .red)
+      Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+        .font(.system(size: 20, weight: .semibold))
+        .foregroundColor(.white)
 
       Text(message)
         .font(.subheadline)
+        .fontWeight(.medium)
         .foregroundColor(.white)
 
       Spacer()
 
       Button {
-        withAnimation {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
           isShowing = false
         }
       } label: {
         Image(systemName: "xmark")
-          .foregroundColor(.white)
+          .font(.system(size: 14, weight: .bold))
+          .foregroundColor(.white.opacity(0.9))
       }
+      .buttonStyle(.plain)
     }
-    .padding()
-    .background(Color.black.opacity(0.8))
-    .clipShape(RoundedRectangle(cornerRadius: 12))
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+    .background(
+      RoundedRectangle(cornerRadius: 12)
+        .fill(backgroundColor)
+    )
     .padding(.horizontal)
-    .transition(.move(edge: .top).combined(with: .opacity))
+    .transition(
+      .asymmetric(
+        insertion: .move(edge: .bottom).combined(with: .opacity),
+        removal: .opacity
+      )
+    )
+  }
+}
+
+#Preview {
+  VStack {
+    Snackbar(
+      message: "🎉 Awesome! You got it right!",
+      isSuccess: true,
+      isShowing: .constant(true)
+    )
+
+    Snackbar(
+      message: "🤔 Almost there! Try again!",
+      isSuccess: false,
+      isShowing: .constant(true)
+    )
   }
 }

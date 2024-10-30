@@ -2,10 +2,11 @@ import SwiftUI
 
 struct ChaptersView: View {
   @StateObject private var viewModel = ChaptersViewModel(userId: AuthManager.shared.currentUserId)
+  @StateObject private var navigationRouter = NavigationRouter()
   @State private var expandedChapter: String?
 
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: $navigationRouter.path) {
       Group {
         if viewModel.isLoading {
           ProgressView()
@@ -52,6 +53,7 @@ struct ChaptersView: View {
           chapterId: navigationData.chapterId
         )
         .environmentObject(viewModel)
+        .environmentObject(navigationRouter)
       }
     }
     .task {

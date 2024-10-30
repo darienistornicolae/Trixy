@@ -72,6 +72,7 @@ final class QuizViewModel: ObservableObject {
   }
 }
 
+// MARK: Private
 private extension QuizViewModel {
   func saveProgress() async {
     do {
