@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ChaptersView: View {
-  @StateObject private var viewModel = ChaptersViewModel(userId: AuthManager.shared.currentUserId)
+  @ObservedObject private var viewModel = ChaptersViewModel(userId: AuthManager.shared.currentUserId)
   @StateObject private var navigationRouter = NavigationRouter()
   @State private var expandedChapter: String?
 

@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 @MainActor
 final class ChaptersViewModel: ObservableObject {
@@ -10,6 +11,7 @@ final class ChaptersViewModel: ObservableObject {
   private let firestoreManager: FirestoreManager<Chapter>
   private let progressManager: FirestoreManager<UserProgressModel>
   private let userId: String
+  private var cancellables = Set<AnyCancellable>()
 
   init(userId: String,
        firestoreManager: FirestoreManager<Chapter> = FirestoreManager(collection: "chapters"),
@@ -17,6 +19,20 @@ final class ChaptersViewModel: ObservableObject {
     self.userId = userId
     self.firestoreManager = firestoreManager
     self.progressManager = progressManager
+
+    setupNotifications()
+  }
+
+  private func setupNotifications() {
+    NotificationCenter.default
+      .publisher(for: .chapterUpdated)
+      .receive(on: RunLoop.main)
+      .sink { [weak self] _ in
+        Task {
+          await self?.fetchChapters()
+        }
+      }
+      .store(in: &cancellables)
   }
 
   func fetchChapters() async {

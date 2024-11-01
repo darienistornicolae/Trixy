@@ -11,6 +11,7 @@ final class QuizViewModel: ObservableObject {
   @Published var showAnswerAlert = false
   @Published var shouldNavigateNext = false
   @Published private(set) var attempts = 0
+  @Published var nextNavigationData: QuizNavigationData?
 
   private let question: Question
   private let firestoreManager: FirestoreManager<Chapter>
@@ -30,7 +31,7 @@ final class QuizViewModel: ObservableObject {
     self.progressManager = progressManager
   }
 
-  func submitAnswer() async {
+   func submitAnswer() async {
     guard let selectedAnswer = selectedAnswer else { return }
 
     isAnswered = true
@@ -46,13 +47,20 @@ final class QuizViewModel: ObservableObject {
       await saveProgress()
       await updateQuestionState()
 
+      if let nextData = await getNextQuestion() {
+        nextNavigationData = nextData
+      }
+
       try? await Task.sleep(nanoseconds: 1_500_000_000)
       shouldNavigateNext = true
-    } else if attempts == 2 {
-      showAnswerAlert = true
+    } else {
+      await updateWrongAttempts()
+      if attempts == 2 {
+        showAnswerAlert = true
+      }
     }
 
-    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
       withAnimation {
         self.showSnackbar = false
       }
@@ -69,6 +77,30 @@ final class QuizViewModel: ObservableObject {
     selectedAnswer = question.correctAnswer
     isCorrect = true
     showFeedback = true
+  }
+
+  private func getNextQuestion() async -> QuizNavigationData? {
+    do {
+      let chapter = try await firestoreManager.getDocument(id: chapterId)
+      guard let currentIndex = chapter.questions.firstIndex(where: { $0.id == question.id }) else { return nil }
+      
+      if currentIndex + 1 < chapter.questions.count {
+        let nextQuestion = chapter.questions[currentIndex + 1]
+        return QuizNavigationData(question: nextQuestion, chapterId: chapterId)
+      }
+      
+      let chapters = try await firestoreManager.fetch()
+      guard let chapterIndex = chapters.firstIndex(where: { $0.id == chapterId }),
+            chapterIndex + 1 < chapters.count else { return nil }
+      
+      let nextChapter = chapters[chapterIndex + 1]
+      guard let firstQuestion = nextChapter.questions.first else { return nil }
+      
+      return QuizNavigationData(question: firstQuestion, chapterId: nextChapter.id)
+    } catch {
+      print("Error getting next question: \(error)")
+      return nil
+    }
   }
 }
 
@@ -120,20 +152,23 @@ private extension QuizViewModel {
         updatedQuestions[questionIndex + 1].state = .unlocked
       }
 
-      let questionsData = try updatedQuestions.map { question -> [String: Any] in
-        let data = try JSONEncoder().encode(question)
-        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-          throw NSError(domain: "QuizViewModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to convert question to dictionary"])
-        }
-        return dict
+      let updatedChapter = Chapter(
+        id: chapter.id,
+        title: chapter.title,
+        description: chapter.description,
+        questions: updatedQuestions
+      )
+      
+      let data = try JSONEncoder().encode(updatedChapter)
+      guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        throw NSError(domain: "QuizViewModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode chapter"])
       }
 
       try await withRetry(maxAttempts: 3) {
-        try await firestoreManager.updateDocument(
-          id: chapterId,
-          data: ["questions": questionsData]
-        )
+        try await firestoreManager.updateDocument(id: chapterId, data: dict)
       }
+      
+      NotificationCenter.default.post(name: .chapterUpdated, object: nil)
     } catch {
       print("Error updating question state: \(error.localizedDescription)")
     }
@@ -155,5 +190,18 @@ private extension QuizViewModel {
       }
     }
     throw lastError ?? NSError(domain: "QuizViewModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Max retry attempts reached"])
+  }
+
+  private func updateWrongAttempts() async {
+    do {
+      var progress = try await progressManager.getDocument(id: userId)
+      progress.wrongAttempts[question.id, default: 0] += 1
+      
+      let data = try JSONEncoder().encode(progress)
+      let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+      try await progressManager.updateDocument(id: userId, data: dict)
+    } catch {
+      print("Error updating wrong attempts: \(error)")
+    }
   }
 }
