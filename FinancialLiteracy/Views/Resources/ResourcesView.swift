@@ -14,7 +14,7 @@ struct ResourcesView: View {
               ForEach(viewModel.resources) { topic in
                 NavigationLink(value: topic) {
                   ResourceCardView(topic: topic)
-                  
+
                 }
                 .buttonStyle(PlainButtonStyle())
               }

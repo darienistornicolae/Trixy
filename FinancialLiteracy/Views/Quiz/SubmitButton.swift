@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SubmitButton: View {
-  @ObservedObject var viewModel: QuizViewModel
+  @ObservedObject var viewModel: QuizManager
 
   var body: some View {
     Button {

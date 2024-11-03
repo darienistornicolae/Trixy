@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NavigationActionButton: View {
-  @EnvironmentObject private var chaptersViewModel: ChaptersViewModel
+  @EnvironmentObject private var chaptersViewModel: ChaptersManager
   let question: Question
   let chapterId: String
 

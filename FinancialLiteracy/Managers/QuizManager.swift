@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 @MainActor
-final class QuizViewModel: ObservableObject {
+final class QuizManager: ObservableObject {
   @Published var selectedAnswer: Int?
   @Published var isAnswered = false
   @Published var isCorrect = false
@@ -10,7 +10,7 @@ final class QuizViewModel: ObservableObject {
   @Published var showSnackbar = false
   @Published var showAnswerAlert = false
   @Published var shouldNavigateNext = false
-  @Published private(set) var attempts = 0
+  @Published private var attempts = 0
   @Published var nextNavigationData: QuizNavigationData?
 
   private let question: Question
@@ -105,7 +105,7 @@ final class QuizViewModel: ObservableObject {
 }
 
 // MARK: Private
-private extension QuizViewModel {
+private extension QuizManager {
   func saveProgress() async {
     do {
       let existingProgress: UserProgressModel

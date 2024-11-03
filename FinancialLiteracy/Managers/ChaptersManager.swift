@@ -2,11 +2,11 @@ import Foundation
 import Combine
 
 @MainActor
-final class ChaptersViewModel: ObservableObject {
-  @Published private(set) var chapters: [Chapter] = []
-  @Published private(set) var isLoading = false
-  @Published private(set) var error: String?
-  @Published private(set) var userProgress: UserProgressModel?
+final class ChaptersManager: ObservableObject {
+  @Published var chapters: [Chapter] = []
+  @Published var isLoading = false
+  @Published private var error: String?
+  @Published var userProgress: UserProgressModel?
 
   private let firestoreManager: FirestoreManager<Chapter>
   private let progressManager: FirestoreManager<UserProgressModel>
@@ -77,7 +77,7 @@ final class ChaptersViewModel: ObservableObject {
 }
 
 // MARK: Private
-private extension ChaptersViewModel {
+private extension ChaptersManager {
   func fetchOrCreateProgress(with chapters: [Chapter]) async throws -> UserProgressModel {
     do {
       return try await progressManager.getDocument(id: userId)

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct QuizContent: View {
-  @ObservedObject var viewModel: QuizViewModel
+  @ObservedObject var quizManager: QuizManager
   let question: Question
   let chapterId: String
 
@@ -14,7 +14,7 @@ struct QuizContent: View {
           .foregroundColor(.secondary)
           .frame(maxWidth: .infinity, alignment: .leading)
 
-        QuestionCard(question: question, viewModel: viewModel)
+        QuestionCard(question: question, viewModel: quizManager)
 
         VStack(spacing: 16) {
           ForEach(question.options.indices, id: \.self) { index in
@@ -22,20 +22,20 @@ struct QuizContent: View {
               text: question.options[index],
               state: buttonState(for: index)
             ) {
-              if !viewModel.isAnswered || !viewModel.isCorrect {
+              if !quizManager.isAnswered || !quizManager.isCorrect {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                  viewModel.selectedAnswer = index
+                  quizManager.selectedAnswer = index
                 }
               }
             }
           }
         }
 
-        if !viewModel.isCorrect {
-          SubmitButton(viewModel: viewModel)
+        if !quizManager.isCorrect {
+          SubmitButton(viewModel: quizManager)
         }
 
-        if viewModel.showFeedback && viewModel.isCorrect {
+        if quizManager.showFeedback && quizManager.isCorrect {
           NavigationActionButton(question: question, chapterId: chapterId)
         }
       }
@@ -48,12 +48,12 @@ struct QuizContent: View {
 // MARK: Private
 private extension QuizContent {
   private func buttonState(for index: Int) -> OptionButton.State {
-    switch (viewModel.showFeedback, index) {
-    case (true, question.correctAnswer) where viewModel.isCorrect:
+    switch (quizManager.showFeedback, index) {
+    case (true, question.correctAnswer) where quizManager.isCorrect:
       return .correct
-    case (true, viewModel.selectedAnswer) where !viewModel.isCorrect:
+    case (true, quizManager.selectedAnswer) where !quizManager.isCorrect:
       return .wrong
-    case (_, viewModel.selectedAnswer):
+    case (_, quizManager.selectedAnswer):
       return .selected
     default:
       return .default

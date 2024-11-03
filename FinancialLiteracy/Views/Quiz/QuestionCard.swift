@@ -2,7 +2,7 @@ import SwiftUI
 
 struct QuestionCard: View {
   let question: Question
-  @ObservedObject var viewModel: QuizViewModel
+  @ObservedObject var viewModel: QuizManager
 
   var body: some View {
     Text(question.questionText)

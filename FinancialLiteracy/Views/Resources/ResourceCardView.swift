@@ -57,37 +57,3 @@ struct ResourceCardView: View {
     )
   }
 }
-
-#Preview {
-  VStack(spacing: 16) {
-    ResourceCardView(
-      topic: ResourceTopic(
-        title: "Budgeting Basics",
-        description: "Learn how to create and maintain a budget that works for your lifestyle. Master the fundamentals of personal finance.",
-        iconName: "dollarsign.circle.fill",
-        content: [
-          ResourceSection(
-            title: "Getting Started",
-            content: "Start your budgeting journey here."
-          )
-        ]
-      )
-    )
-    
-    ResourceCardView(
-      topic: ResourceTopic(
-        title: "Smart Investing",
-        description: "Discover the power of compound interest and learn how to make your money work for you through smart investment strategies.",
-        iconName: "chart.line.uptrend.xyaxis.circle.fill",
-        content: [
-          ResourceSection(
-            title: "Investment Basics",
-            content: "Understanding investment fundamentals."
-          )
-        ]
-      )
-    )
-  }
-  .padding()
-  .background(Color(.systemGray6))
-}

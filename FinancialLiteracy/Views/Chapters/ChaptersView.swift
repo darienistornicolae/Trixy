@@ -1,22 +1,22 @@
 import SwiftUI
 
 struct ChaptersView: View {
-  @ObservedObject private var viewModel = ChaptersViewModel(userId: AuthManager.shared.currentUserId)
+  @ObservedObject private var chaptersManager = ChaptersManager(userId: AuthManager.shared.currentUserId)
   @StateObject private var navigationRouter = NavigationRouter()
   @State private var expandedChapter: String?
 
   var body: some View {
     NavigationStack(path: $navigationRouter.path) {
       Group {
-        if viewModel.isLoading {
+        if chaptersManager.isLoading {
           ProgressView()
-        } else if !viewModel.chapters.isEmpty {
+        } else if !chaptersManager.chapters.isEmpty {
           ScrollView {
             VStack(spacing: 16) {
-              ProgressHeaderView(chapters: viewModel.chapters)
+              ProgressHeaderView(chapters: chaptersManager.chapters)
                 .padding(.horizontal)
               
-              if let navigationData = viewModel.resumeLastQuestion() {
+              if let navigationData = chaptersManager.resumeLastQuestion() {
                 NavigationLink(value: navigationData) {
                   resumeButton()
                 }
@@ -24,7 +24,7 @@ struct ChaptersView: View {
               }
 
               LazyVStack(spacing: 16) {
-                ForEach(viewModel.chapters) { chapter in
+                ForEach(chaptersManager.chapters) { chapter in
                   ChapterCardView(
                     chapter: chapter,
                     isExpanded: expandedChapter == chapter.id
@@ -52,12 +52,12 @@ struct ChaptersView: View {
           question: navigationData.question,
           chapterId: navigationData.chapterId
         )
-        .environmentObject(viewModel)
+        .environmentObject(chaptersManager)
         .environmentObject(navigationRouter)
       }
     }
     .task {
-      await viewModel.fetchChapters()
+      await chaptersManager.fetchChapters()
     }
   }
 }
@@ -66,6 +66,7 @@ struct ChaptersView: View {
   ChaptersView()
 }
 
+// MARK: Private
 private extension ChaptersView {
   private func resumeButton() -> some View {
     HStack {
